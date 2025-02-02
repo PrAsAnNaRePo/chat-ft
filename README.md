@@ -90,7 +90,7 @@ The `train.py` script fine-tunes the Qwen2.5 model on the preprocessed chat logs
 ### Command
 ```bash
 python train.py \
-  --chat_file_path Qwen/Qwen2.5-1.5B-Instruct \
+  --chat_file_path chat_file.txt \
   --target_role "John" \
   --low_gpu_memory True \
   --output_path ./qwen2.5-1.5B-chat-ft \
