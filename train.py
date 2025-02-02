@@ -7,6 +7,7 @@ import wandb
 from trl import SFTTrainer
 from process_data import ProcessData
 import argparse
+from unsloth import FastLanguageModel
 
 def train(args):
 
@@ -18,31 +19,26 @@ def train(args):
     print("Lenght of dataset: ", len(ds))
 
     if args.low_gpu_memory:
-        #BitsAndBytesConfig int-4 config
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True, bnb_4bit_use_double_quant=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.bfloat16
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name = model_id,
+            max_seq_length = args.max_seq_length,
+            dtype = None,
+            load_in_4bit = True,
         )
-
-        # Load model and tokenizer
-        model = AutoModelForCausalLM.from_pretrained(
-            model_id, device_map="auto", torch_dtype=torch.bfloat16, quantization_config=bnb_config
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r = 16,
+            target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
+                              "gate_proj", "up_proj", "down_proj",],
+            lora_alpha = 16,
+            lora_dropout = 0,
+            bias = "none",
+            use_gradient_checkpointing = "unsloth",
+            random_state = 3407,
+            max_seq_length = args.max_seq_length,
+            use_rslora = False,
+            loftq_config = None,
         )
-
-        # Configure LoRA
-        peft_config = LoraConfig(
-            lora_alpha=16,
-            lora_dropout=0.05,
-            r=8,
-            bias="none",
-            target_modules=["q_proj", "v_proj"],
-            task_type="CAUSAL_LM",
-        )
-
-        # Apply PEFT model adaptation
-        model = get_peft_model(model, peft_config)
-
-        # Print trainable parameters
-        model.print_trainable_parameters()
 
     else:
         model = AutoModelForCausalLM.from_pretrained(
@@ -106,23 +102,13 @@ def train(args):
             config=training_args,
         )
 
-    if args.low_gpu_memory:
-        trainer = SFTTrainer(
-            model=model,
-            args=training_args,
-            train_dataset=ds,
-            data_collator=collate_fn,
-            peft_config=peft_config,
-            tokenizer=tokenizer,
-        )
-    else:
-        trainer = SFTTrainer(
-            model=model,
-            args=training_args,
-            train_dataset=ds,
-            data_collator=collate_fn,
-            tokenizer=tokenizer,
-        )
+    trainer = SFTTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=ds,
+        data_collator=collate_fn,
+        tokenizer=tokenizer,
+    )
 
     trainer.train()
 
