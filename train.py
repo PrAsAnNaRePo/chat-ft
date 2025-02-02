@@ -14,7 +14,7 @@ def train(args):
     model_id = args.model_id
     tokenizer = AutoTokenizer.from_pretrained(model_id)
 
-    ds = ProcessData(args.chat_file_path, tokenizer).get_rc_msg_format(target_role=args.target_role)
+    ds = ProcessData(args.chat_file_path, tokenizer, args.hr_gap).get_rc_msg_format(target_role=args.target_role)
 
     print("Lenght of dataset: ", len(ds))
 
@@ -79,8 +79,8 @@ def train(args):
         logging_steps=1,
         save_strategy="steps",
         save_steps=20,
-        bf16=True,
-        tf32=True,
+        bf16=args.training_dtype == "bf16",
+        fp16=args.training_dtype == "fp16",
         max_grad_norm=0.3,
         warmup_ratio=0.03,
         push_to_hub=True,
@@ -88,7 +88,7 @@ def train(args):
         gradient_checkpointing_kwargs={"use_reentrant": False},
         dataset_text_field="",
         dataset_kwargs={"skip_prepare_dataset": True},
-        max_seq_length=args.max_seq_length
+        max_seq_length=args.max_seq_length,
     )
     
     print("Number of GPUs: ", training_args.n_gpu)
@@ -120,8 +120,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", type=str, default="Qwen/Qwen2.5-1.5B-Instruct", help="HF Model ID")
     parser.add_argument("--chat_file_path", type=str, required=True, help="Path to the chat file")
+    parser.add_argument("--hr_gap", type=int, default=5, help="hour gap for grouping messages")
     parser.add_argument("--target_role", type=str, required=True, help="Target role for the conversation to be trained on")
     parser.add_argument("--low_gpu_memory", type=bool, default=True, help="Uses pfet to lower gpu memory")
+    parser.add_argument("--training_dtype", type=str, default="fp16", help="Training dtype")
     parser.add_argument("--output_path", type=str, default="qwen2.5-1.5b-chat-ft", help="Path to save the model")
     parser.add_argument("--num_epochs", type=int, default=4, help="Number of training epochs")
     parser.add_argument("--per_device_train_batch_size", type=int, default=4, help="Batch size for training")

@@ -9,14 +9,15 @@ class ProcessData:
     def __init__(
             self,
             file_path,
-            tokenizer
+            tokenizer,
+            hr_gap:int=5
     ):
         self.file_path = file_path
         with open(self.file_path, 'r', encoding='utf-8') as file:
             self.content = file.read().split('\n')[1:]
         self.parsed_logs = self.parse_chat_logs(self.content)
         self.combined_msgs = self.combine_messages(self.parsed_logs)
-        self.grouped_msgs = self.group_messages(self.combined_msgs)
+        self.grouped_msgs = self.group_messages(self.combined_msgs, hr_gap)
         self.get_token_distribution(tokenizer)
 
     def parse_chat_logs(self, logs: List[str]) -> List[dict]:
@@ -268,7 +269,7 @@ class ProcessData:
 
         # 4. Time Series Analysis (Messages Over Time)
         # First convert timestamps to datetime objects
-        all_messages = [msg for group in processed_data.grouped_msgs for msg in group]
+        all_messages = [msg for group in self.grouped_msgs for msg in group]
         timestamps = []
         for msg in all_messages:
             t = msg['time'].replace('\u202f', '')
